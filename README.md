@@ -131,34 +131,49 @@ listener {
 
 ### PAM configuration on NixOS
 
-Aegis Lock generates per-user PAM configs by default (`~/.config/aegis-lock/pam/`). On NixOS, you can use system-level PAM instead for better security:
+Aegis Lock ships two authentication modes:
 
-```nix
-# configuration.nix (NixOS system config)
-{
-  security.pam.services.aegis-lock = {};
-}
-```
+**Per-user PAM configs (default, recommended for fingerprint users)**
 
-Then in your Home Manager config, point aegis-lock to the system PAM config:
+The Home Manager module generates separate PAM configs in `~/.config/aegis-lock/pam/` — one for fingerprint and one for password. Aegis Lock runs them as separate PAM sessions and switches between them: fingerprint starts automatically after the shield is dismissed, and the user can press Enter at any time to abort fingerprint and switch to password input instantly. This is the same approach GDM uses for concurrent fingerprint + password.
+
+No extra NixOS config needed — just enable fingerprint:
 
 ```nix
 {
   programs.aegis-lock = {
     enable = true;
-    pamConfig = "aegis-lock"; # uses /etc/pam.d/aegis-lock
+    fingerprint.enable = true; # default
   };
 }
 ```
 
-For fingerprint support with system PAM, add fprintd:
+Make sure fprintd is enabled in your NixOS config:
 
 ```nix
 # configuration.nix
 {
   services.fprintd.enable = true;
-  security.pam.services.aegis-lock = {
-    fprintAuth = true;
+}
+```
+
+**System PAM config (simpler, password-only or sequential)**
+
+For setups without fingerprint, or if you prefer system-managed PAM rules, you can point aegis-lock to a single `/etc/pam.d/` config. Note: with a single PAM stack, fingerprint and password run sequentially — the user must wait for fingerprint to timeout before password input is accepted.
+
+```nix
+# configuration.nix
+{
+  security.pam.services.aegis-lock = {};
+}
+```
+
+```nix
+# Home Manager
+{
+  programs.aegis-lock = {
+    enable = true;
+    pamConfig = "aegis-lock"; # uses /etc/pam.d/aegis-lock
   };
 }
 ```
