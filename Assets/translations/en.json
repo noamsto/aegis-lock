@@ -1,0 +1,15 @@
+{
+  "shield.press-to-unlock": "Press any key to unlock",
+  "auth.failed": "Authentication failed",
+  "auth.error": "Authentication error",
+  "auth.pam-unavailable": "PAM not available",
+  "password.placeholder": "Enter password...",
+  "password.submit": "Unlock",
+  "session.suspend": "Suspend",
+  "session.reboot": "Reboot",
+  "session.shutdown": "Shutdown",
+  "session.logout": "Logout",
+  "session.countdown": "{action} in {seconds}s",
+  "session.cancel": "Cancel",
+  "welcome.greeting": "Welcome back"
+}

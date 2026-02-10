@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(fc-list:*)",
+      "Bash(python3:*)",
+      "Bash(fontforge --version:*)",
+      "Bash(hyprctl devices:*)"
+    ]
+  }
+}
