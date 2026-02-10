@@ -8,12 +8,6 @@
     "countdownEnabled": true,
     "countdownDuration": 10000
   },
-  "appearance": {
-    "wallpaperPath": "",
-    "gradientOverlay": true,
-    "accentColor": "",
-    "fontFamily": ""
-  },
   "theme": {
     "source": "auto",
     "colorsFile": ""

@@ -8,7 +8,7 @@ Item {
   id: root;
   anchors.horizontalCenter: parent.horizontalCenter;
   anchors.bottom: parent.bottom;
-  anchors.bottomMargin: 130;
+  anchors.bottomMargin: parent.height * 0.15;
   width: buttonRow.implicitWidth;
   height: buttonRow.implicitHeight;
 

@@ -6,7 +6,7 @@ Item {
   id: root;
   anchors.horizontalCenter: parent.horizontalCenter;
   anchors.bottom: parent.bottom;
-  anchors.bottomMargin: 200;
+  anchors.bottomMargin: parent.height * 0.25;
   width: 360;
   height: panelColumn.implicitHeight;
 
@@ -23,7 +23,9 @@ Item {
       Layout.fillWidth: true;
       Layout.preferredHeight: 44;
       radius: Theme.radiusM;
-      color: Theme.error;
+      color: Qt.alpha(Theme.error, 0.15);
+      border.color: Qt.alpha(Theme.error, 0.3);
+      border.width: 1;
       visible: root.authController.showFailure && root.authController.errorMessage;
       opacity: visible ? 1.0 : 0.0;
 
@@ -35,13 +37,13 @@ Item {
           text: "\uf06a"; // alert icon
           font.pointSize: Theme.fontSizeLarge;
           font.family: "Symbols Nerd Font";
-          color: Theme.errorForeground;
+          color: Theme.error;
         }
 
         Text {
           text: root.authController.errorMessage || L10n.tr("auth.failed");
           font.pointSize: Theme.fontSizeMedium;
-          color: Theme.errorForeground;
+          color: Theme.error;
         }
       }
 
@@ -79,12 +81,24 @@ Item {
 
     // Password input row
     Rectangle {
+      id: inputRect;
       Layout.fillWidth: true;
       Layout.preferredHeight: 52;
       radius: Theme.radiusL;
       color: Theme.inputBackground;
-      border.color: root.passwordInput.activeFocus ? Theme.inputBorderFocused : Theme.inputBorder;
-      border.width: root.passwordInput.activeFocus ? Theme.borderMedium : Theme.borderThin;
+      border.color: root.authController.unlockInProgress
+        ? Theme.primary
+        : (root.passwordInput.activeFocus ? Theme.inputBorderFocused : Theme.inputBorder);
+      border.width: root.passwordInput.activeFocus || root.authController.unlockInProgress ? Theme.borderMedium : Theme.borderThin;
+
+      // Pulsing opacity during auth
+      SequentialAnimation on opacity {
+        running: root.authController.unlockInProgress;
+        loops: Animation.Infinite;
+        NumberAnimation { to: 0.6; duration: 800; easing.type: Easing.InOutSine; }
+        NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine; }
+        onRunningChanged: { if (!running) inputRect.opacity = 1.0; }
+      }
 
       Behavior on border.color {
         ColorAnimation {
@@ -131,6 +145,8 @@ Item {
             anchors.verticalCenter: parent.verticalCenter;
             spacing: 4;
             visible: root.authController.currentText !== "" && !showPasswordToggle.checked;
+            clip: true;
+            width: Math.min(implicitWidth, parent.width);
 
             Repeater {
               model: Math.min(root.authController.currentText.length, 30);
@@ -189,7 +205,6 @@ Item {
           height: 40;
           radius: width / 2;
           color: submitMouse.containsMouse ? Theme.primary : Qt.alpha(Theme.primary, 0.8);
-          opacity: root.authController.unlockInProgress ? 0.5 : 1.0;
 
           Text {
             anchors.centerIn: parent;

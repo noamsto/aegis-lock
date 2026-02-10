@@ -14,7 +14,7 @@ Item {
   property date currentTime: new Date();
 
   Timer {
-    interval: 1000;
+    interval: 10000;
     running: true;
     repeat: true;
     onTriggered: root.currentTime = new Date();

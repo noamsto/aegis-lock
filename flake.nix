@@ -1,31 +1,26 @@
 {
-  description = "Aegis Lock - standalone Wayland lockscreen with fingerprint support";
+  description = "Aegis Lock — standalone Wayland lockscreen with fingerprint support";
 
   inputs = {
+    flake-parts.url = "github:hercules-ci/flake-parts";
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
   outputs =
-    {
-      self,
+    inputs@{
+      flake-parts,
       nixpkgs,
       ...
     }:
-    let
-      eachSystem = nixpkgs.lib.genAttrs nixpkgs.lib.platforms.linux;
-      pkgsFor = eachSystem (
-        system: nixpkgs.legacyPackages.${system}.appendOverlays [ self.overlays.default ]
-      );
-    in
-    {
-      formatter = eachSystem (system: pkgsFor.${system}.nixfmt);
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [
+        "x86_64-linux"
+        "aarch64-linux"
+      ];
 
-      packages = eachSystem (system: {
-        default = pkgsFor.${system}.aegis-lock;
-      });
-
-      overlays = {
-        default = final: prev: {
+      # Flake-level outputs (not per-system)
+      flake = {
+        overlays.default = final: prev: {
           aegis-lock = final.callPackage ./nix/package.nix {
             version =
               let
@@ -37,26 +32,35 @@
                     (builtins.substring 6 2 longDate)
                   ];
               in
-              mkDate (self.lastModifiedDate or "19700101") + "_" + (self.shortRev or "dirty");
+              mkDate (inputs.self.lastModifiedDate or "19700101") + "_" + (inputs.self.shortRev or "dirty");
           };
         };
+
+        homeModules.default =
+          {
+            pkgs,
+            lib,
+            ...
+          }:
+          {
+            imports = [ ./nix/home-module.nix ];
+            programs.aegis-lock.package =
+              lib.mkDefault
+                inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          };
       };
 
-      devShells = eachSystem (system: {
-        default = pkgsFor.${system}.callPackage ./nix/shell.nix { };
-      });
+      perSystem =
+        { pkgs, system, ... }:
+        let
+          pkgsWithOverlay = pkgs.appendOverlays [ inputs.self.overlays.default ];
+        in
+        {
+          formatter = pkgs.nixfmt;
 
-      homeModules.default =
-        {
-          pkgs,
-          lib,
-          ...
-        }:
-        {
-          imports = [ ./nix/home-module.nix ];
-          programs.aegis-lock.package =
-            lib.mkDefault
-              self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          packages.default = pkgsWithOverlay.aegis-lock;
+
+          devShells.default = pkgs.callPackage ./nix/shell.nix { };
         };
     };
 }

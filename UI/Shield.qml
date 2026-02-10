@@ -55,7 +55,8 @@ Item {
     id: shieldOverlay;
     anchors.fill: parent;
     color: "transparent";
-    visible: internal.shieldActive;
+    visible: opacity > 0;
+    opacity: internal.shieldActive ? 1.0 : 0.0;
     z: 100;
 
     Rectangle {
@@ -102,7 +103,7 @@ Item {
     height: 50;
     anchors.horizontalCenter: parent.horizontalCenter;
     anchors.bottom: parent.bottom;
-    anchors.bottomMargin: 420;
+    anchors.bottomMargin: parent.height * 0.42;
     radius: width / 2;
     color: showingError ? Qt.alpha("#F44336", 0.25) : Theme.indicatorBackground;
     border.color: showingError ? "#F44336" : Qt.alpha(Theme.primary, 0.3);
