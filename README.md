@@ -78,6 +78,26 @@ Add the module to your Home Manager imports and enable it:
 }
 ```
 
+### Noctalia session menu
+
+If you use [Noctalia](https://github.com/noctalia) as your Hyprland shell, you can replace its built-in lock screen with Aegis Lock. In `~/.config/noctalia/gui-settings.json`, add a `command` field to the lock entry in `sessionMenu.powerOptions`:
+
+```json
+{
+  "sessionMenu": {
+    "powerOptions": [
+      {
+        "action": "lock",
+        "enabled": true,
+        "command": "aegis-lock"
+      }
+    ]
+  }
+}
+```
+
+When you press the lock button in Noctalia's session menu, it will launch Aegis Lock instead of Noctalia's built-in lock screen. Colors are synced automatically (see [Noctalia color sync](#noctalia-color-sync)).
+
 ### Hyprland integration
 
 Bind aegis-lock to your preferred lock key in your Hyprland config:
