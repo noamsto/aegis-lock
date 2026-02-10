@@ -16,7 +16,7 @@ Standalone Wayland lockscreen for Hyprland, built with [Quickshell](https://quic
 
 ### Flake input
 
-From FlakeHub:
+From [FlakeHub](https://flakehub.com/flake/noamsto/aegis-lock) (recommended — includes binary cache so you don't have to build from source):
 
 ```nix
 {
@@ -24,7 +24,19 @@ From FlakeHub:
 }
 ```
 
-Or from GitHub:
+To use the FlakeHub binary cache, add the [FlakeHub cache](https://docs.flakehub.com/docs/cache) to your NixOS or nix config:
+
+```nix
+# configuration.nix
+{
+  nix.settings = {
+    extra-substituters = [ "https://cache.flakehub.com" ];
+    extra-trusted-public-keys = [ "cache.flakehub.com-1:t6986ugxCA+d/ZF9IaN/dblm8aAKnJoMbuzEHbU0Rn8=" ];
+  };
+}
+```
+
+Or from GitHub (builds from source):
 
 ```nix
 {

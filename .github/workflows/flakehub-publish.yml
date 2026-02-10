@@ -47,4 +47,4 @@ jobs:
         with:
           name: noamsto/aegis-lock
           rolling: true
-          visibility: private
+          visibility: public
