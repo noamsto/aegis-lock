@@ -1,4 +1,5 @@
 import Quickshell
+import Quickshell.Wayland
 import QtQuick
 import qs.Core
 import qs.Auth
@@ -33,12 +34,61 @@ ShellRoot {
     onLoaded: Log.i("Shell", "Preview surface loaded");
   }
 
-  // Lock mode: real session lock
-  Loader {
-    active: Config.ready && !root.previewMode;
-    sourceComponent: LockSurface {
-      lockRequested: true;
+  // Lock mode: WlSessionLock exists IMMEDIATELY (not gated by Config.ready)
+  // so quickshell's onReload() can transfer the lock manager between generations.
+  // Only the UI content waits for Config.ready.
+  WlSessionLock {
+    id: lockSession;
+    locked: root.lockMode;
+
+    WlSessionLockSurface {
+      // Black placeholder while Config loads
+      Rectangle {
+        anchors.fill: parent;
+        color: "black";
+        visible: !lockContentLoader.loaded;
+      }
+
+      Loader {
+        id: lockContentLoader;
+        anchors.fill: parent;
+        active: Config.ready;
+        sourceComponent: Item {
+          anchors.fill: parent;
+
+          AuthController {
+            id: authController;
+            onUnlocked: {
+              lockSession.locked = false;
+              authController.currentText = "";
+            }
+            onFailed: {
+              if (authController.usePasswordOnly || !authController.fingerprintMode) {
+                authController.currentText = "";
+              }
+            }
+          }
+
+          LockContent {
+            id: lockContent;
+            authController: authController;
+            onEscapePressed: {}
+          }
+
+          Connections {
+            target: lockSession;
+            function onLockedChanged() {
+              if (lockSession.locked) {
+                authController.resetForNewSession();
+                lockContent.shield.reset();
+                lockContent.passwordInput.text = "";
+                lockContent.passwordInput.forceActiveFocus();
+              }
+            }
+          }
+        }
+        onLoaded: Log.i("Shell", "Lock content loaded");
+      }
     }
-    onLoaded: Log.i("Shell", "Lock surface loaded");
   }
 }
