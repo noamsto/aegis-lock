@@ -34,6 +34,21 @@ ShellRoot {
     onLoaded: Log.i("Shell", "Preview surface loaded");
   }
 
+  // Shared auth controller for all lock surfaces — lives outside the per-screen
+  // Variants so all monitors share the same PAM session and unlock state.
+  AuthController {
+    id: authController;
+    onUnlocked: {
+      lockSession.locked = false;
+      authController.currentText = "";
+    }
+    onFailed: {
+      if (authController.usePasswordOnly || !authController.fingerprintMode) {
+        authController.currentText = "";
+      }
+    }
+  }
+
   // Lock mode: WlSessionLock exists IMMEDIATELY (not gated by Config.ready)
   // so quickshell's onReload() can transfer the lock manager between generations.
   // Only the UI content waits for Config.ready.
@@ -41,53 +56,50 @@ ShellRoot {
     id: lockSession;
     locked: root.lockMode;
 
-    WlSessionLockSurface {
-      // Black placeholder while Config loads
-      Rectangle {
-        anchors.fill: parent;
-        color: "black";
-        visible: !lockContentLoader.loaded;
-      }
+    // One lock surface per screen so every monitor shows the lock UI
+    Variants {
+      model: Quickshell.screens;
 
-      Loader {
-        id: lockContentLoader;
-        anchors.fill: parent;
-        active: Config.ready;
-        sourceComponent: Item {
-          anchors.fill: parent;
+      delegate: Component {
+        WlSessionLockSurface {
+          required property ShellScreen modelData;
+          screen: modelData;
 
-          AuthController {
-            id: authController;
-            onUnlocked: {
-              lockSession.locked = false;
-              authController.currentText = "";
-            }
-            onFailed: {
-              if (authController.usePasswordOnly || !authController.fingerprintMode) {
-                authController.currentText = "";
-              }
-            }
+          // Black placeholder while Config loads
+          Rectangle {
+            anchors.fill: parent;
+            color: "black";
+            visible: !lockContentLoader.loaded;
           }
 
-          LockContent {
-            id: lockContent;
-            authController: authController;
-            onEscapePressed: {}
-          }
+          Loader {
+            id: lockContentLoader;
+            anchors.fill: parent;
+            active: Config.ready;
+            sourceComponent: Item {
+              anchors.fill: parent;
 
-          Connections {
-            target: lockSession;
-            function onLockedChanged() {
-              if (lockSession.locked) {
-                authController.resetForNewSession();
-                lockContent.shield.reset();
-                lockContent.passwordInput.text = "";
-                lockContent.passwordInput.forceActiveFocus();
+              LockContent {
+                id: lockContent;
+                authController: authController;
+                onEscapePressed: {}
+              }
+
+              Connections {
+                target: lockSession;
+                function onLockedChanged() {
+                  if (lockSession.locked) {
+                    authController.resetForNewSession();
+                    lockContent.shield.reset();
+                    lockContent.passwordInput.text = "";
+                    lockContent.passwordInput.forceActiveFocus();
+                  }
+                }
               }
             }
+            onLoaded: Log.i("Shell", "Lock surface loaded for screen:", modelData.name);
           }
         }
-        onLoaded: Log.i("Shell", "Lock content loaded");
       }
     }
   }
