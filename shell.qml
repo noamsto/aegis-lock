@@ -34,6 +34,21 @@ ShellRoot {
     onLoaded: Log.i("Shell", "Preview surface loaded");
   }
 
+  // Shared auth controller — lives outside WlSessionLockSurface so all
+  // auto-created per-monitor surfaces share the same PAM session and state.
+  AuthController {
+    id: authController;
+    onUnlocked: {
+      lockSession.locked = false;
+      authController.currentText = "";
+    }
+    onFailed: {
+      if (authController.usePasswordOnly || !authController.fingerprintMode) {
+        authController.currentText = "";
+      }
+    }
+  }
+
   // Lock mode: WlSessionLock exists IMMEDIATELY (not gated by Config.ready)
   // so quickshell's onReload() can transfer the lock manager between generations.
   // Only the UI content waits for Config.ready.
@@ -55,19 +70,6 @@ ShellRoot {
         active: Config.ready;
         sourceComponent: Item {
           anchors.fill: parent;
-
-          AuthController {
-            id: authController;
-            onUnlocked: {
-              lockSession.locked = false;
-              authController.currentText = "";
-            }
-            onFailed: {
-              if (authController.usePasswordOnly || !authController.fingerprintMode) {
-                authController.currentText = "";
-              }
-            }
-          }
 
           LockContent {
             id: lockContent;
