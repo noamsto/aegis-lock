@@ -61,11 +61,10 @@ ShellRoot {
             onUnlocked: {
               lockSession.locked = false;
               authController.currentText = "";
+              Qt.quit();
             }
             onFailed: {
-              if (authController.usePasswordOnly || !authController.fingerprintMode) {
-                authController.currentText = "";
-              }
+              authController.currentText = "";
             }
           }
 

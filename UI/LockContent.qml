@@ -87,7 +87,10 @@ Item {
         }
       }
     }
-    enabled: true;
+    onActiveFocusChanged: {
+      if (activeFocus) Keyboard.refresh();
+    }
+    enabled: !authController.unlockInProgress;
     Component.onCompleted: forceActiveFocus();
   }
 

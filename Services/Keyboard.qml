@@ -71,6 +71,11 @@ Singleton {
     Log.d("Keyboard", "Layout:", root.layoutShort, "(" + keymap + ")");
   }
 
+  function refresh() {
+    _hyprBuffer = "";
+    hyprProc.running = true;
+  }
+
   function init() {
     // Listen to Hyprland activelayout events for real-time updates
     Hyprland.rawEvent.connect(function(event) {
@@ -84,8 +89,7 @@ Singleton {
     });
 
     // Initial state: one-time poll
-    _hyprBuffer = "";
-    hyprProc.running = true;
+    refresh();
   }
 
   // One-time initial poll to get current layout

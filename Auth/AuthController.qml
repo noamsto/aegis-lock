@@ -12,7 +12,6 @@ Scope {
 
   property string currentText: "";
   property bool waitingForPassword: false;
-  property bool unlockInProgress: false;
   property bool showFailure: false;
   property bool showInfo: false;
   property string errorMessage: "";
@@ -21,25 +20,27 @@ Scope {
 
   // Fingerprint state
   readonly property bool fingerprintMode: FingerprintDetector.ready;
-  property bool pamStarted: false;
-  property bool usePasswordOnly: false;
-  property bool abortInProgress: false;
+  property bool fingerprintActive: false;
+  property bool passwordActive: false;
+  property bool _unlockHandled: false;
 
-  // Show fingerprint indicator when scanning (hide when typing switches to password mode)
-  readonly property bool showFingerprintIndicator: fingerprintMode && unlockInProgress && !waitingForPassword && !showFailure && !usePasswordOnly;
+  // Only password auth blocks input/shows pulsing. Fingerprint runs passively.
+  readonly property bool unlockInProgress: passwordActive;
 
-  // PAM config resolution
-  readonly property string pamConfigDirectory: {
-    var envConfig = Quickshell.env("AEGIS_PAM_CONFIG");
-    if (envConfig) return "/etc/pam.d";
-    return Config.pamDir;
-  }
+  // Show fingerprint indicator when fingerprint PAM is actively scanning
+  readonly property bool showFingerprintIndicator: fingerprintMode && fingerprintActive;
 
-  readonly property string pamConfig: {
-    var envConfig = Quickshell.env("AEGIS_PAM_CONFIG");
-    if (envConfig) return envConfig;
-    return (usePasswordOnly || !fingerprintMode) ? "password-only.conf" : "fingerprint-only.conf";
-  }
+  // PAM config resolution — split into separate configs for each context
+  readonly property bool _useSystemPamConfig: !!Quickshell.env("AEGIS_PAM_CONFIG");
+
+  readonly property string _systemPamConfigDir: "/etc/pam.d";
+  readonly property string _systemPamConfig: Quickshell.env("AEGIS_PAM_CONFIG") || "";
+
+  readonly property string fingerprintPamConfig: _useSystemPamConfig ? _systemPamConfig : "fingerprint-only.conf";
+  readonly property string fingerprintPamConfigDir: _useSystemPamConfig ? _systemPamConfigDir : Config.pamDir;
+
+  readonly property string passwordPamConfig: _useSystemPamConfig ? _systemPamConfig : "password-only.conf";
+  readonly property string passwordPamConfigDir: _useSystemPamConfig ? _systemPamConfigDir : Config.pamDir;
 
   onCurrentTextChanged: {
     if (currentText !== "") {
@@ -52,63 +53,52 @@ Scope {
 
   function resetForNewSession() {
     Log.i("Auth", "Resetting state for new lock session");
-    abortTimer.stop();
-    fingerprintRestartTimer.stop();
-    pamStarted = false;
+    if (fingerprintActive) {
+      fingerprintPam.abort();
+    }
+    if (passwordActive) {
+      passwordPam.abort();
+    }
+    fingerprintActive = false;
+    passwordActive = false;
+    _unlockHandled = false;
     waitingForPassword = false;
-    usePasswordOnly = false;
-    abortInProgress = false;
     showFailure = false;
     errorMessage = "";
     infoMessage = "";
     currentText = "";
   }
 
-  // Abort timeout — forces state reset if PAM doesn't respond to abort
-  Timer {
-    id: abortTimer;
-    interval: 150;
-    repeat: false;
-    onTriggered: {
-      if (root.abortInProgress) {
-        Log.i("Auth", "PAM abort timeout, forcing state reset");
-        root.abortInProgress = false;
-        root.unlockInProgress = false;
-        root.usePasswordOnly = true;
-        root.pamStarted = false;
-        root.tryUnlock();
-      }
-    }
-  }
-
-  // Delay before restarting fingerprint auth (prevents tight loops)
-  Timer {
-    id: fingerprintRestartTimer;
-    interval: 500;
-    repeat: false;
-    onTriggered: root.startFingerprintAuth();
-  }
-
   function startFingerprintAuth() {
-    Log.i("Auth", "startFingerprintAuth - fingerprintMode:", fingerprintMode, "pamStarted:", pamStarted, "unlockInProgress:", unlockInProgress);
+    Log.i("Auth", "startFingerprintAuth - fingerprintMode:", fingerprintMode, "fingerprintActive:", fingerprintActive);
 
     if (!fingerprintMode) {
       Log.d("Auth", "Fingerprint not available, skipping");
       return;
     }
-    if (pamStarted || unlockInProgress) {
-      Log.d("Auth", "PAM already started, skipping");
+    if (fingerprintActive) {
+      Log.d("Auth", "Fingerprint PAM already active, skipping");
+      return;
+    }
+    // System PAM config handles both in one PAM stack — don't start separate fingerprint PAM
+    if (_useSystemPamConfig) {
+      Log.d("Auth", "Using system PAM config, skipping separate fingerprint PAM");
       return;
     }
 
-    Log.i("Auth", "Starting fingerprint authentication");
-    pamStarted = true;
-    tryUnlock();
+    if (!pamAvailable) {
+      Log.i("Auth", "PAM not available");
+      return;
+    }
+
+    Log.i("Auth", "Starting fingerprint PAM - configDir:", fingerprintPamConfigDir, "config:", fingerprintPamConfig);
+    fingerprintActive = true;
+    fingerprintPam.start();
   }
 
   function tryUnlock(fromEnterPress) {
     fromEnterPress = fromEnterPress || false;
-    Log.i("Auth", "tryUnlock - fromEnterPress:", fromEnterPress, "waitingForPassword:", waitingForPassword, "currentText:", currentText !== "" ? "[has text]" : "[empty]", "unlockInProgress:", unlockInProgress);
+    Log.i("Auth", "tryUnlock - fromEnterPress:", fromEnterPress, "waitingForPassword:", waitingForPassword, "currentText:", currentText !== "" ? "[has text]" : "[empty]", "passwordActive:", passwordActive);
 
     if (!pamAvailable) {
       Log.i("Auth", "PAM not available");
@@ -119,63 +109,95 @@ Scope {
 
     // Respond with password if PAM is waiting
     if (waitingForPassword && currentText !== "") {
-      Log.i("Auth", "Responding to PAM with password");
-      pam.respond(currentText);
+      Log.i("Auth", "Responding to password PAM with password");
+      passwordPam.respond(currentText);
       waitingForPassword = false;
       return;
     }
 
-    // Switch from fingerprint to password mode on Enter press during scan
-    if (fromEnterPress && unlockInProgress && currentText !== "" && !waitingForPassword && !abortInProgress && !Quickshell.env("AEGIS_PAM_CONFIG")) {
-      Log.i("Auth", "Switching to password-only mode");
-      abortInProgress = true;
-      abortTimer.start();
-      pam.abort();
+    // Start password PAM if not already active and we have text
+    if (!passwordActive && currentText !== "") {
+      Log.i("Auth", "Starting password PAM - configDir:", passwordPamConfigDir, "config:", passwordPamConfig);
+      passwordActive = true;
+      errorMessage = "";
+      showFailure = false;
+      passwordPam.start();
       return;
     }
 
-    if (unlockInProgress) {
-      Log.i("Auth", "Already in progress, ignoring");
-      return;
-    }
-
-    unlockInProgress = true;
-    errorMessage = "";
-    showFailure = false;
-
-    Log.i("Auth", "Starting PAM - configDir:", pamConfigDirectory, "config:", pamConfig, "fingerprintMode:", fingerprintMode, "usePasswordOnly:", usePasswordOnly);
-    pam.start();
+    Log.d("Auth", "tryUnlock: nothing to do (passwordActive:", passwordActive, "currentText empty:", currentText === "", ")");
   }
 
   PamContext {
-    id: pam;
-    configDirectory: root.pamConfigDirectory;
-    config: root.pamConfig;
+    id: fingerprintPam;
+    configDirectory: root.fingerprintPamConfigDir;
+    config: root.fingerprintPamConfig;
     user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "unknown";
 
     onPamMessage: {
-      Log.i("Auth", "PAM message:", message, "isError:", messageIsError, "responseRequired:", responseRequired);
+      Log.i("Auth", "Fingerprint PAM message:", message, "isError:", messageIsError, "responseRequired:", responseRequired);
 
       var msgLower = message.toLowerCase();
 
       if (messageIsError) {
-        root.errorMessage = message;
         if (msgLower.includes("failed") && msgLower.includes("fingerprint")) {
           Log.i("Auth", "Fingerprint failure detected");
           root.fingerprintFailed();
         }
       } else {
         root.infoMessage = message;
+        root.showInfo = true;
+      }
+
+      // Fingerprint PAM should never need a text response — fprintd handles sensor input.
+      // If it does ask, we have nothing to send.
+    }
+
+    onCompleted: result => {
+      Log.i("Auth", "Fingerprint PAM completed - result:", result);
+
+      if (result === PamResult.Success) {
+        if (!root._unlockHandled) {
+          root._unlockHandled = true;
+          Log.i("Auth", "Fingerprint authentication successful");
+          if (root.passwordActive) {
+            passwordPam.abort();
+          }
+          root.fingerprintActive = false;
+          root.unlocked();
+        }
+      } else {
+        Log.i("Auth", "Fingerprint PAM ended (non-success), deactivating");
+        root.fingerprintActive = false;
+      }
+    }
+
+    onError: {
+      Log.i("Auth", "Fingerprint PAM error:", error, "message:", message);
+      root.fingerprintActive = false;
+    }
+  }
+
+  PamContext {
+    id: passwordPam;
+    configDirectory: root.passwordPamConfigDir;
+    config: root.passwordPamConfig;
+    user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "unknown";
+
+    onPamMessage: {
+      Log.i("Auth", "Password PAM message:", message, "isError:", messageIsError, "responseRequired:", responseRequired);
+
+      if (messageIsError) {
+        root.errorMessage = message;
+      } else {
+        root.infoMessage = message;
+        root.showInfo = true;
       }
 
       if (responseRequired) {
-        var isFingerprintPrompt = msgLower.includes("finger") || msgLower.includes("swipe") || msgLower.includes("touch") || msgLower.includes("scan");
-
-        if (isFingerprintPrompt) {
-          Log.i("Auth", "Fingerprint prompt, waiting for sensor");
-        } else if (root.currentText !== "") {
+        if (root.currentText !== "") {
           Log.i("Auth", "Responding with password");
-          pam.respond(root.currentText);
+          passwordPam.respond(root.currentText);
         } else {
           Log.i("Auth", "Waiting for password input");
           root.waitingForPassword = true;
@@ -184,59 +206,34 @@ Scope {
     }
 
     onCompleted: result => {
-      Log.i("Auth", "PAM completed - result:", result, "abortInProgress:", root.abortInProgress);
-
-      if (root.abortInProgress) {
-        Log.i("Auth", "PAM aborted, restarting with password-only");
-        abortTimer.stop();
-        root.abortInProgress = false;
-        root.unlockInProgress = false;
-        root.usePasswordOnly = true;
-        root.pamStarted = false;
-        root.tryUnlock();
-        return;
-      }
+      Log.i("Auth", "Password PAM completed - result:", result);
 
       if (result === PamResult.Success) {
-        Log.i("Auth", "Authentication successful");
-        root.unlocked();
-      } else {
-        Log.i("Auth", "Authentication failed");
-        root.currentText = "";
-        if (root.usePasswordOnly || !root.fingerprintMode) {
-          root.errorMessage = L10n.tr("auth.failed");
-          root.showFailure = true;
+        if (!root._unlockHandled) {
+          root._unlockHandled = true;
+          Log.i("Auth", "Password authentication successful");
+          if (root.fingerprintActive) {
+            fingerprintPam.abort();
+          }
+          root.passwordActive = false;
+          root.unlocked();
         }
+      } else {
+        Log.i("Auth", "Password authentication failed");
+        root.errorMessage = L10n.tr("auth.failed");
+        root.showFailure = true;
+        root.passwordActive = false;
+        root.waitingForPassword = false;
         root.failed();
       }
-      root.unlockInProgress = false;
-      root.waitingForPassword = false;
-      root.usePasswordOnly = false;
-      root.pamStarted = false;
     }
 
     onError: {
-      Log.i("Auth", "PAM error:", error, "message:", message);
-
-      if (root.abortInProgress) {
-        Log.i("Auth", "PAM abort error, restarting with password-only");
-        abortTimer.stop();
-        root.abortInProgress = false;
-        root.unlockInProgress = false;
-        root.usePasswordOnly = true;
-        root.pamStarted = false;
-        root.tryUnlock();
-        return;
-      }
-
-      if (root.usePasswordOnly || !root.fingerprintMode) {
-        root.errorMessage = message || L10n.tr("auth.error");
-        root.showFailure = true;
-      }
-      root.unlockInProgress = false;
+      Log.i("Auth", "Password PAM error:", error, "message:", message);
+      root.errorMessage = message || L10n.tr("auth.error");
+      root.showFailure = true;
+      root.passwordActive = false;
       root.waitingForPassword = false;
-      root.usePasswordOnly = false;
-      root.pamStarted = false;
       root.failed();
     }
   }

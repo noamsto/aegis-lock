@@ -29,9 +29,7 @@ FloatingWindow {
       });
     }
     onFailed: {
-      if (authController.usePasswordOnly || !authController.fingerprintMode) {
-        authController.currentText = "";
-      }
+      authController.currentText = "";
     }
   }
 

@@ -13,6 +13,14 @@ Item {
   required property var authController;
   required property TextInput passwordInput;
 
+  readonly property bool isRtl: {
+    var t = root.authController.currentText;
+    if (!t) return false;
+    // Hebrew: U+0590-U+05FF, Arabic: U+0600-U+06FF
+    var code = t.charCodeAt(0);
+    return (code >= 0x0590 && code <= 0x05FF) || (code >= 0x0600 && code <= 0x06FF);
+  }
+
   ColumnLayout {
     id: panelColumn;
     anchors.fill: parent;
@@ -134,8 +142,11 @@ Item {
           // Placeholder text
           Text {
             anchors.verticalCenter: parent.verticalCenter;
+            anchors.left: root.isRtl ? undefined : parent.left;
+            anchors.right: root.isRtl ? parent.right : undefined;
             text: L10n.tr("password.placeholder");
             font.pointSize: Theme.fontSizeMedium;
+            horizontalAlignment: root.isRtl ? Text.AlignRight : Text.AlignLeft;
             color: Qt.alpha(Theme.surfaceVariantForeground, 0.5);
             visible: root.authController.currentText === "";
           }
@@ -143,6 +154,9 @@ Item {
           // Dot display for password
           Row {
             anchors.verticalCenter: parent.verticalCenter;
+            anchors.left: root.isRtl ? undefined : parent.left;
+            anchors.right: root.isRtl ? parent.right : undefined;
+            layoutDirection: root.isRtl ? Qt.RightToLeft : Qt.LeftToRight;
             spacing: 4;
             visible: root.authController.currentText !== "" && !showPasswordToggle.checked;
             clip: true;
@@ -164,6 +178,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter;
             text: root.authController.currentText;
             font.pointSize: Theme.fontSizeMedium;
+            horizontalAlignment: root.isRtl ? Text.AlignRight : Text.AlignLeft;
             color: Theme.surfaceForeground;
             visible: root.authController.currentText !== "" && showPasswordToggle.checked;
             elide: Text.ElideRight;
