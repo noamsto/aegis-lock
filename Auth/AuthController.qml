@@ -144,10 +144,8 @@ Scope {
           Log.i("Auth", "Fingerprint failure detected");
           root.fingerprintFailed();
         }
-      } else {
-        root.infoMessage = message;
-        root.showInfo = true;
       }
+      // Don't show fingerprint PAM info messages — the fingerprint indicator icon is sufficient.
 
       // Fingerprint PAM should never need a text response — fprintd handles sensor input.
       // If it does ask, we have nothing to send.

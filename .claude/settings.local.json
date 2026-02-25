@@ -8,7 +8,8 @@
       "Bash(AEGIS_PREVIEW=1 timeout 4 qs:*)",
       "Bash(# Check for the specific crash related to session lock and output disabling gh issue view 553 --repo quickshell-mirror/quickshell)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(gtrash put:*)"
+      "Bash(gtrash put:*)",
+      "WebFetch(domain:quickshell.org)"
     ]
   }
 }
