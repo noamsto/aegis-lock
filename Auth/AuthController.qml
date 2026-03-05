@@ -36,6 +36,8 @@ Scope {
   readonly property string _systemPamConfigDir: "/etc/pam.d";
   readonly property string _systemPamConfig: Quickshell.env("AEGIS_PAM_CONFIG") || "";
 
+  readonly property string _pamUser: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "unknown";
+
   readonly property string fingerprintPamConfig: _useSystemPamConfig ? _systemPamConfig : "fingerprint-only.conf";
   readonly property string fingerprintPamConfigDir: _useSystemPamConfig ? _systemPamConfigDir : Config.pamDir;
 
@@ -132,7 +134,7 @@ Scope {
     id: fingerprintPam;
     configDirectory: root.fingerprintPamConfigDir;
     config: root.fingerprintPamConfig;
-    user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "unknown";
+    user: root._pamUser;
 
     onPamMessage: {
       Log.i("Auth", "Fingerprint PAM message:", message, "isError:", messageIsError, "responseRequired:", responseRequired);
@@ -180,7 +182,7 @@ Scope {
     id: passwordPam;
     configDirectory: root.passwordPamConfigDir;
     config: root.passwordPamConfig;
-    user: Quickshell.env("USER") || Quickshell.env("LOGNAME") || "unknown";
+    user: root._pamUser;
 
     onPamMessage: {
       Log.i("Auth", "Password PAM message:", message, "isError:", messageIsError, "responseRequired:", responseRequired);

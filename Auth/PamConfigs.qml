@@ -31,39 +31,29 @@ Singleton {
     checkOtherProc.running = true;
   }
 
-  function _createFingerprintOnly() {
+  function _createConfig(filename, content) {
     var dirEsc = pamDir.replace(/'/g, "'\\''");
-    var fileEsc = (pamDir + "fingerprint-only.conf").replace(/'/g, "'\\''");
+    var fileEsc = (pamDir + filename).replace(/'/g, "'\\''");
+    var script = "mkdir -p '" + dirEsc + "' && chmod 700 '" + dirEsc + "' && ";
+    script += "cat > '" + fileEsc + "' << 'EOF'\n" + content + "EOF\n";
+    script += "chmod 600 '" + fileEsc + "'";
+    Quickshell.execDetached(["sh", "-c", script]);
+    Log.i("PamConfigs", "Created", filename);
+  }
+
+  function _createFingerprintOnly() {
     var content = "auth sufficient pam_fprintd.so timeout=-1 max-tries=-1\n";
     content += "auth sufficient /run/current-system/sw/lib/security/pam_fprintd.so timeout=-1 max-tries=-1\n";
     content += "auth required pam_deny.so\n";
-    var script = "mkdir -p '" + dirEsc + "' && chmod 700 '" + dirEsc + "' && ";
-    script += "cat > '" + fileEsc + "' << 'EOF'\n" + content + "EOF\n";
-    script += "chmod 600 '" + fileEsc + "'";
-    Quickshell.execDetached(["sh", "-c", script]);
-    Log.i("PamConfigs", "Created fingerprint-only.conf");
+    _createConfig("fingerprint-only.conf", content);
   }
 
   function _createPasswordOnly() {
-    var dirEsc = pamDir.replace(/'/g, "'\\''");
-    var fileEsc = (pamDir + "password-only.conf").replace(/'/g, "'\\''");
-    var content = "auth required pam_unix.so\n";
-    var script = "mkdir -p '" + dirEsc + "' && chmod 700 '" + dirEsc + "' && ";
-    script += "cat > '" + fileEsc + "' << 'EOF'\n" + content + "EOF\n";
-    script += "chmod 600 '" + fileEsc + "'";
-    Quickshell.execDetached(["sh", "-c", script]);
-    Log.i("PamConfigs", "Created password-only.conf");
+    _createConfig("password-only.conf", "auth required pam_unix.so\n");
   }
 
   function _createOther() {
-    var dirEsc = pamDir.replace(/'/g, "'\\''");
-    var fileEsc = (pamDir + "other").replace(/'/g, "'\\''");
-    var content = "auth required pam_deny.so\n";
-    var script = "mkdir -p '" + dirEsc + "' && chmod 700 '" + dirEsc + "' && ";
-    script += "cat > '" + fileEsc + "' << 'EOF'\n" + content + "EOF\n";
-    script += "chmod 600 '" + fileEsc + "'";
-    Quickshell.execDetached(["sh", "-c", script]);
-    Log.i("PamConfigs", "Created 'other' fallback config");
+    _createConfig("other", "auth required pam_deny.so\n");
   }
 
   Process {

@@ -39,8 +39,6 @@ Singleton {
 
   Process {
     id: detectProc;
-    command: ["fprintd-list", root._getUsername()];
-
     property int retryCount: 0;
     property int maxRetries: 3;
 
