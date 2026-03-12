@@ -107,6 +107,7 @@ Item {
   PasswordPanel {
     authController: root.authController;
     passwordInput: passwordInput;
+    showFingerprintIndicator: shield.showingFingerprintIndicator;
     visible: !shield.shieldActive;
   }
 

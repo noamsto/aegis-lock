@@ -10,13 +10,8 @@ Item {
 
   required property var authController;
 
-  FontLoader {
-    id: tablerFont;
-    source: Qt.resolvedUrl("../Assets/Fonts/noctalia-tabler-icons.ttf");
-  }
-
   readonly property bool shieldActive: internal.shieldActive;
-  readonly property bool showingFingerprintIndicator: fingerprintIndicator.visible;
+  readonly property bool showingFingerprintIndicator: !internal.shieldActive && fpShowTimer.shouldShow;
 
   function dismissShield() {
     if (!internal.shieldActive) return;
@@ -26,7 +21,6 @@ Item {
   function reset() {
     internal.shieldActive = true;
     fpShowTimer.shouldShow = false;
-    fingerprintIndicator.showingError = false;
   }
 
   function handleKeyPress(event) {
@@ -96,97 +90,12 @@ Item {
     }
   }
 
-  // Fingerprint status indicator
-  Rectangle {
-    id: fingerprintIndicator;
-    width: 50;
-    height: 50;
-    anchors.horizontalCenter: parent.horizontalCenter;
-    anchors.bottom: parent.bottom;
-    anchors.bottomMargin: parent.height * 0.42;
-    radius: width / 2;
-    color: showingError ? Qt.alpha("#F44336", 0.25) : Theme.indicatorBackground;
-    border.color: showingError ? "#F44336" : Qt.alpha(Theme.primary, 0.3);
-    border.width: showingError ? 2 : 1;
-    visible: !internal.shieldActive && fpShowTimer.shouldShow;
-    opacity: visible ? 1.0 : 0.0;
-
-    property bool showingError: false;
-
-    Text {
-      anchors.centerIn: parent;
-      text: "\uebd1"; // fingerprint icon (tabler)
-      font.pointSize: Theme.fontSizeXXL;
-      font.family: tablerFont.name;
-      color: fingerprintIndicator.showingError ? "#F44336" : Theme.primary;
-
-      Behavior on color {
-        ColorAnimation {
-          duration: 150;
-        }
-      }
-    }
-
-    // Shake animation on error
-    SequentialAnimation {
-      id: shakeAnimation;
-      PropertyAnimation {
-        target: fingerprintIndicator;
-        property: "anchors.horizontalCenterOffset";
-        to: -10;
-        duration: 50;
-      }
-      PropertyAnimation {
-        target: fingerprintIndicator;
-        property: "anchors.horizontalCenterOffset";
-        to: 10;
-        duration: 50;
-      }
-      PropertyAnimation {
-        target: fingerprintIndicator;
-        property: "anchors.horizontalCenterOffset";
-        to: -5;
-        duration: 50;
-      }
-      PropertyAnimation {
-        target: fingerprintIndicator;
-        property: "anchors.horizontalCenterOffset";
-        to: 0;
-        duration: 50;
-      }
-    }
-
-    // Delay showing indicator after shield dismissed
-    Timer {
-      id: fpShowTimer;
-      interval: 500;
-      running: !internal.shieldActive && FingerprintDetector.available;
-      property bool shouldShow: false;
-      onTriggered: shouldShow = true;
-    }
-
-    // Listen for fingerprint errors
-    Connections {
-      target: root.authController;
-      function onFingerprintFailed() {
-        Log.i("Shield", "Fingerprint failed — showing error animation");
-        fingerprintIndicator.showingError = true;
-        shakeAnimation.start();
-        errorResetTimer.start();
-      }
-    }
-
-    Timer {
-      id: errorResetTimer;
-      interval: 1500;
-      onTriggered: fingerprintIndicator.showingError = false;
-    }
-
-    Behavior on opacity {
-      NumberAnimation {
-        duration: Theme.animNormal;
-        easing.type: Easing.OutCubic;
-      }
-    }
+  // Delay showing fingerprint indicator after shield dismissed
+  Timer {
+    id: fpShowTimer;
+    interval: 500;
+    running: !internal.shieldActive && FingerprintDetector.available;
+    property bool shouldShow: false;
+    onTriggered: shouldShow = true;
   }
 }

@@ -189,7 +189,9 @@ Scope {
 
       if (messageIsError) {
         root.errorMessage = message;
-      } else {
+      } else if (!responseRequired) {
+        // Only show non-prompt info messages. PAM prompts like "Password:"
+        // are redundant — the input field placeholder already communicates this.
         root.infoMessage = message;
         root.showInfo = true;
       }

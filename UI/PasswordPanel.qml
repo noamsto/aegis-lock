@@ -12,6 +12,12 @@ Item {
 
   required property var authController;
   required property TextInput passwordInput;
+  required property bool showFingerprintIndicator;
+
+  FontLoader {
+    id: tablerFont;
+    source: Qt.resolvedUrl("../Assets/Fonts/noctalia-tabler-icons.ttf");
+  }
 
   readonly property bool isRtl: {
     var t = root.authController.currentText;
@@ -63,6 +69,65 @@ Item {
       }
     }
 
+    // Fingerprint indicator
+    Rectangle {
+      id: fingerprintIndicator;
+      Layout.alignment: Qt.AlignHCenter;
+      width: 50;
+      height: 50;
+      radius: width / 2;
+      color: showingError ? Qt.alpha("#F44336", 0.25) : Theme.indicatorBackground;
+      border.color: showingError ? "#F44336" : Qt.alpha(Theme.primary, 0.3);
+      border.width: showingError ? 2 : 1;
+      visible: root.showFingerprintIndicator;
+      opacity: visible ? 1.0 : 0.0;
+
+      property bool showingError: false;
+      property real shakeOffset: 0;
+
+      transform: Translate { x: fingerprintIndicator.shakeOffset; }
+
+      Text {
+        anchors.centerIn: parent;
+        text: "\uebd1"; // fingerprint icon (tabler)
+        font.pointSize: Theme.fontSizeXXL;
+        font.family: tablerFont.name;
+        color: fingerprintIndicator.showingError ? "#F44336" : Theme.primary;
+
+        Behavior on color {
+          ColorAnimation { duration: 150; }
+        }
+      }
+
+      SequentialAnimation {
+        id: shakeAnimation;
+        PropertyAnimation { target: fingerprintIndicator; property: "shakeOffset"; to: -10; duration: 50; }
+        PropertyAnimation { target: fingerprintIndicator; property: "shakeOffset"; to: 10; duration: 50; }
+        PropertyAnimation { target: fingerprintIndicator; property: "shakeOffset"; to: -5; duration: 50; }
+        PropertyAnimation { target: fingerprintIndicator; property: "shakeOffset"; to: 0; duration: 50; }
+      }
+
+      Connections {
+        target: root.authController;
+        function onFingerprintFailed() {
+          Log.i("PasswordPanel", "Fingerprint failed — showing error animation");
+          fingerprintIndicator.showingError = true;
+          shakeAnimation.start();
+          errorResetTimer.start();
+        }
+      }
+
+      Timer {
+        id: errorResetTimer;
+        interval: 1500;
+        onTriggered: fingerprintIndicator.showingError = false;
+      }
+
+      Behavior on opacity {
+        NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic; }
+      }
+    }
+
     // Info message
     Rectangle {
       Layout.fillWidth: true;
@@ -99,13 +164,15 @@ Item {
         : (root.passwordInput.activeFocus ? Theme.inputBorderFocused : Theme.inputBorder);
       border.width: root.passwordInput.activeFocus || root.authController.unlockInProgress ? Theme.borderMedium : Theme.borderThin;
 
-      // Pulsing opacity during auth
-      SequentialAnimation on opacity {
+      // Pulsing border during auth
+      SequentialAnimation on border.color {
         running: root.authController.unlockInProgress;
         loops: Animation.Infinite;
-        NumberAnimation { to: 0.6; duration: 800; easing.type: Easing.InOutSine; }
-        NumberAnimation { to: 1.0; duration: 800; easing.type: Easing.InOutSine; }
-        onRunningChanged: { if (!running) inputRect.opacity = 1.0; }
+        ColorAnimation { to: Qt.alpha(Theme.primary, 0.3); duration: 600; easing.type: Easing.InOutSine; }
+        ColorAnimation { to: Theme.primary; duration: 600; easing.type: Easing.InOutSine; }
+        onRunningChanged: { if (!running) inputRect.border.color = Qt.binding(function() {
+          return root.passwordInput.activeFocus ? Theme.inputBorderFocused : Theme.inputBorder;
+        }); }
       }
 
       Behavior on border.color {
@@ -213,20 +280,58 @@ Item {
           }
         }
 
-        // Submit button
+        // Submit button / spinner
         Rectangle {
           Layout.alignment: Qt.AlignVCenter;
           width: 40;
           height: 40;
           radius: width / 2;
-          color: submitMouse.containsMouse ? Theme.primary : Qt.alpha(Theme.primary, 0.8);
+          color: root.authController.unlockInProgress
+            ? Qt.alpha(Theme.primary, 0.6)
+            : (submitMouse.containsMouse ? Theme.primary : Qt.alpha(Theme.primary, 0.8));
 
+          // Arrow icon (hidden during unlock)
           Text {
             anchors.centerIn: parent;
             text: "\uf061"; // arrow right
             font.pointSize: Theme.fontSizeLarge;
             font.family: "Symbols Nerd Font";
             color: Theme.primaryForeground;
+            visible: !root.authController.unlockInProgress;
+          }
+
+          // Arc spinner (visible during unlock)
+          Canvas {
+            id: spinner;
+            anchors.centerIn: parent;
+            width: 24; height: 24;
+            visible: root.authController.unlockInProgress;
+
+            property real angle: 0;
+
+            onAngleChanged: requestPaint();
+            onVisibleChanged: if (!visible) angle = 0;
+
+            NumberAnimation on angle {
+              running: spinner.visible;
+              from: 0; to: 360;
+              duration: 800;
+              loops: Animation.Infinite;
+            }
+
+            onPaint: {
+              var ctx = getContext("2d");
+              ctx.reset();
+              var cx = width / 2, cy = height / 2, r = 9;
+              var startRad = angle * Math.PI / 180;
+              var arcLen = 1.8; // ~100 degree arc
+              ctx.beginPath();
+              ctx.arc(cx, cy, r, startRad, startRad + arcLen);
+              ctx.strokeStyle = Theme.primaryForeground;
+              ctx.lineWidth = 2.5;
+              ctx.lineCap = "round";
+              ctx.stroke();
+            }
           }
 
           MouseArea {
