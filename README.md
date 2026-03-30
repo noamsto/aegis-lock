@@ -5,10 +5,14 @@ Standalone Wayland lockscreen for Hyprland, built with [Quickshell](https://quic
 ## Features
 
 - Password and fingerprint authentication (via PAM)
-- Automatic color sync with Noctalia's color scheme
+- Blurred wallpaper background (reads current wallpaper from Noctalia)
+- Password character reveal — typed characters show briefly before masking
+- Shake and scale animation on authentication failure
+- Automatic color sync with Noctalia's Material Design 3 scheme
 - Session controls (logout, suspend, reboot, shutdown) with safety countdown
 - Media playback controls (playerctl)
 - Battery and keyboard layout indicators
+- RTL text support (Hebrew, Arabic)
 - Configurable clock format, date format, and UI options
 - NixOS Home Manager module for declarative setup
 
@@ -177,6 +181,33 @@ For setups without fingerprint, or if you prefer system-managed PAM rules, you c
   };
 }
 ```
+
+## Wallpaper background
+
+Aegis Lock displays your current wallpaper as a blurred background behind the lock screen. It reads the wallpaper path from `~/.config/noctalia/last-wallpaper`, which Noctalia writes automatically via its wallpaper change hook. The file is watched for changes, so wallpaper updates are reflected live.
+
+To set up the hook in Noctalia, add to your `gui-settings.json`:
+
+```json
+{
+  "wallpaper": {
+    "hooks": {
+      "wallpaperChange": "echo \"$1\" > ~/.config/noctalia/last-wallpaper"
+    }
+  }
+}
+```
+
+Or via the Home Manager module for Noctalia:
+
+```nix
+{
+  programs.noctalia.settings.wallpaper.hooks.wallpaperChange =
+    ''echo "$1" > ~/.config/noctalia/last-wallpaper'';
+}
+```
+
+If the file doesn't exist or is empty, Aegis Lock falls back to a solid color background using the theme's surface color.
 
 ## Noctalia color sync
 
