@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import qs.Core
 
 Item {
@@ -17,6 +18,49 @@ Item {
   FontLoader {
     id: tablerFont;
     source: Qt.resolvedUrl("../Assets/Fonts/noctalia-tabler-icons.ttf");
+  }
+
+  // Character reveal model — each char shows briefly before becoming a dot
+  ListModel {
+    id: charRevealModel;
+  }
+
+  Timer {
+    id: revealTimer;
+    interval: 150;
+    onTriggered: {
+      // Mask the most recently revealed character
+      for (var i = charRevealModel.count - 1; i >= 0; i--) {
+        if (!charRevealModel.get(i).masked) {
+          charRevealModel.setProperty(i, "masked", true);
+          break;
+        }
+      }
+    }
+  }
+
+  Connections {
+    target: root.authController;
+    function onCurrentTextChanged() {
+      var text = root.authController.currentText;
+      var modelCount = charRevealModel.count;
+
+      if (text.length > modelCount) {
+        // Characters added — mask all existing, reveal only the new ones
+        for (var i = 0; i < modelCount; i++) {
+          charRevealModel.setProperty(i, "masked", true);
+        }
+        for (var j = modelCount; j < text.length; j++) {
+          charRevealModel.append({ "char": text.charAt(j), "masked": false });
+        }
+        revealTimer.restart();
+      } else if (text.length < modelCount) {
+        // Characters removed
+        while (charRevealModel.count > text.length) {
+          charRevealModel.remove(charRevealModel.count - 1);
+        }
+      }
+    }
   }
 
   readonly property bool isRtl: {
@@ -41,6 +85,15 @@ Item {
       border.color: Qt.alpha(Theme.error, 0.3);
       border.width: 1;
       visible: root.authController.showFailure && root.authController.errorMessage;
+
+      layer.enabled: visible;
+      layer.effect: MultiEffect {
+        shadowEnabled: true;
+        shadowColor: Qt.alpha("#000000", 0.3);
+        shadowVerticalOffset: 2;
+        shadowHorizontalOffset: 0;
+        shadowBlur: 0.3;
+      }
       opacity: visible ? 1.0 : 0.0;
 
       RowLayout {
@@ -81,6 +134,15 @@ Item {
       border.width: showingError ? 2 : 1;
       visible: root.showFingerprintIndicator;
       opacity: visible ? 1.0 : 0.0;
+
+      layer.enabled: visible;
+      layer.effect: MultiEffect {
+        shadowEnabled: true;
+        shadowColor: Qt.alpha("#000000", 0.4);
+        shadowVerticalOffset: 2;
+        shadowHorizontalOffset: 0;
+        shadowBlur: 0.4;
+      }
 
       property bool showingError: false;
       property real shakeOffset: 0;
@@ -159,10 +221,49 @@ Item {
       Layout.preferredHeight: 52;
       radius: Theme.radiusL;
       color: Theme.inputBackground;
+
+      layer.enabled: true;
+      layer.effect: MultiEffect {
+        shadowEnabled: true;
+        shadowColor: Qt.alpha("#000000", 0.4);
+        shadowVerticalOffset: 2;
+        shadowHorizontalOffset: 0;
+        shadowBlur: 0.4;
+      }
       border.color: root.authController.unlockInProgress
         ? Theme.primary
         : (root.passwordInput.activeFocus ? Theme.inputBorderFocused : Theme.inputBorder);
       border.width: root.passwordInput.activeFocus || root.authController.unlockInProgress ? Theme.borderMedium : Theme.borderThin;
+
+      property real shakeOffset: 0;
+      transform: Translate { x: inputRect.shakeOffset; }
+
+      scale: root.authController.unlockInProgress ? 0.98 : 1.0;
+      Behavior on scale { NumberAnimation { duration: Theme.animNormal; easing.type: Easing.OutCubic; } }
+
+      // Shake on auth failure
+      SequentialAnimation {
+        id: inputShakeAnimation;
+        PropertyAnimation { target: inputRect; property: "shakeOffset"; to: -8; duration: 50; }
+        PropertyAnimation { target: inputRect; property: "shakeOffset"; to: 8; duration: 50; }
+        PropertyAnimation { target: inputRect; property: "shakeOffset"; to: -4; duration: 50; }
+        PropertyAnimation { target: inputRect; property: "shakeOffset"; to: 0; duration: 50; }
+      }
+
+      // Brief scale bump on failure
+      SequentialAnimation {
+        id: inputFailScaleAnimation;
+        PropertyAnimation { target: inputRect; property: "scale"; to: 1.03; duration: 100; easing.type: Easing.OutCubic; }
+        PropertyAnimation { target: inputRect; property: "scale"; to: 1.0; duration: 200; easing.type: Easing.OutCubic; }
+      }
+
+      Connections {
+        target: root.authController;
+        function onFailed() {
+          inputShakeAnimation.start();
+          inputFailScaleAnimation.start();
+        }
+      }
 
       // Pulsing border during auth
       SequentialAnimation on border.color {
@@ -218,7 +319,7 @@ Item {
             visible: root.authController.currentText === "";
           }
 
-          // Dot display for password
+          // Password display with character reveal
           Row {
             anchors.verticalCenter: parent.verticalCenter;
             anchors.left: root.isRtl ? undefined : parent.left;
@@ -230,12 +331,30 @@ Item {
             width: Math.min(implicitWidth, parent.width);
 
             Repeater {
-              model: Math.min(root.authController.currentText.length, 30);
-              Rectangle {
-                width: 8;
-                height: 8;
-                radius: 4;
-                color: Theme.surfaceForeground;
+              model: charRevealModel;
+
+              Item {
+                width: model.masked ? 8 : charLabel.implicitWidth;
+                height: 20;
+                Behavior on width { NumberAnimation { duration: 80; easing.type: Easing.OutCubic; } }
+
+                // Dot (shown when masked)
+                Rectangle {
+                  anchors.centerIn: parent;
+                  width: 8; height: 8; radius: 4;
+                  color: Theme.surfaceForeground;
+                  visible: model.masked;
+                }
+
+                // Character (shown briefly before masking)
+                Text {
+                  id: charLabel;
+                  anchors.centerIn: parent;
+                  text: model.char;
+                  font.pointSize: Theme.fontSizeMedium;
+                  color: Theme.surfaceForeground;
+                  visible: !model.masked;
+                }
               }
             }
           }

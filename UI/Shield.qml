@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import qs.Core
 import qs.Auth
@@ -54,11 +55,21 @@ Item {
     z: 100;
 
     Rectangle {
+      id: shieldPill;
       anchors.centerIn: parent;
       width: shieldContent.width + Theme.spacingXL * 2;
       height: shieldContent.height + Theme.spacingL * 2;
       radius: Theme.radiusL;
       color: Theme.shieldBackground;
+
+      layer.enabled: true;
+      layer.effect: MultiEffect {
+        shadowEnabled: true;
+        shadowColor: Qt.alpha("#000000", 0.5);
+        shadowVerticalOffset: 3;
+        shadowHorizontalOffset: 0;
+        shadowBlur: 0.5;
+      }
     }
 
     RowLayout {

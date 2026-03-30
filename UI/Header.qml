@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Effects
 import Quickshell
 import qs.Core
 
@@ -24,6 +25,15 @@ Item {
     id: headerColumn;
     anchors.horizontalCenter: parent.horizontalCenter;
     spacing: Theme.spacingM;
+
+    layer.enabled: true;
+    layer.effect: MultiEffect {
+      shadowEnabled: true;
+      shadowColor: Qt.alpha("#000000", 0.6);
+      shadowVerticalOffset: 2;
+      shadowHorizontalOffset: 0;
+      shadowBlur: 0.6;
+    }
 
     // Clock
     Text {

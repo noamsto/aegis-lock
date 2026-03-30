@@ -130,6 +130,8 @@ Item {
       font.pointSize: Theme.fontSizeSmall;
       color: Qt.alpha(Theme.surfaceForeground, 0.6);
       visible: Keyboard.available && Keyboard.layoutShort !== "";
+      style: Text.Raised;
+      styleColor: Qt.alpha("#000000", 0.4);
     }
 
     // Battery indicator
@@ -144,12 +146,16 @@ Item {
         color: Battery.charging ? Theme.primary
           : Battery.percentage <= 10 ? Theme.error
           : Qt.alpha(Theme.surfaceForeground, 0.6);
+        style: Text.Raised;
+        styleColor: Qt.alpha("#000000", 0.4);
       }
 
       Text {
         text: Battery.percentage + "%";
         font.pointSize: Theme.fontSizeSmall;
         color: Battery.charging ? Theme.primary : Qt.alpha(Theme.surfaceForeground, 0.6);
+        style: Text.Raised;
+        styleColor: Qt.alpha("#000000", 0.4);
       }
     }
   }
@@ -247,6 +253,8 @@ Item {
         }
         font.pointSize: Theme.fontSizeSmall;
         color: Qt.alpha(Theme.surfaceForeground, 0.5);
+        style: Text.Raised;
+        styleColor: Qt.alpha("#000000", 0.3);
 
         SequentialAnimation on x {
           running: trackContainer.overflow && Media.available;
