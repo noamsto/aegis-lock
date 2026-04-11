@@ -129,20 +129,11 @@ Item {
       width: 50;
       height: 50;
       radius: width / 2;
-      color: showingError ? Qt.alpha("#F44336", 0.25) : Theme.indicatorBackground;
-      border.color: showingError ? "#F44336" : Qt.alpha(Theme.primary, 0.3);
+      color: showingError ? Qt.alpha("#F44336", 0.25) : Qt.alpha(Theme.surface, 0.85);
+      border.color: showingError ? "#F44336" : Qt.alpha(Theme.primary, 0.5);
       border.width: showingError ? 2 : 1;
       visible: root.showFingerprintIndicator;
       opacity: visible ? 1.0 : 0.0;
-
-      layer.enabled: visible;
-      layer.effect: MultiEffect {
-        shadowEnabled: true;
-        shadowColor: Qt.alpha("#000000", 0.4);
-        shadowVerticalOffset: 2;
-        shadowHorizontalOffset: 0;
-        shadowBlur: 0.4;
-      }
 
       property bool showingError: false;
       property real shakeOffset: 0;

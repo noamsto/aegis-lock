@@ -42,6 +42,11 @@ ShellRoot {
     locked: root.lockMode;
 
     WlSessionLockSurface {
+      id: lockSurface;
+
+      Component.onCompleted: Log.i("Shell", "Lock surface created for screen:", screen?.name ?? "unknown");
+      Component.onDestruction: Log.i("Shell", "Lock surface destroyed for screen:", screen?.name ?? "unknown");
+
       // Black placeholder while Config loads
       Rectangle {
         anchors.fill: parent;
@@ -86,7 +91,7 @@ ShellRoot {
             }
           }
         }
-        onLoaded: Log.i("Shell", "Lock content loaded");
+        onLoaded: Log.i("Shell", "Lock content loaded, Config.ready:", Config.ready);
       }
     }
   }
