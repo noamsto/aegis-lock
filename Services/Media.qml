@@ -2,103 +2,28 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.Mpris
 import qs.Core
 
 Singleton {
   id: root;
 
-  property string title: "";
-  property string artist: "";
-  property string artUrl: "";
-  property bool playing: false;
-  property bool available: false;
-
-  property string _statusBuffer: ""
-  property string _metaBuffer: ""
-
-  function playPause() {
-    controlProc.command = ["playerctl", "play-pause"];
-    controlProc.running = true;
+  // Re-evaluates when players appear/disappear on the bus.
+  readonly property var _player: {
+    var players = Mpris.players.values;
+    return (players && players.length > 0) ? players[0] : null;
   }
 
-  function next() {
-    controlProc.command = ["playerctl", "next"];
-    controlProc.running = true;
-  }
+  readonly property bool available: _player !== null;
+  readonly property bool playing: available && _player.isPlaying;
+  readonly property string title: available ? _player.trackTitle : "";
+  readonly property string artist: available ? _player.trackArtist : "";
+  readonly property string artUrl: available ? _player.trackArtUrl : "";
 
-  function previous() {
-    controlProc.command = ["playerctl", "previous"];
-    controlProc.running = true;
-  }
+  function playPause() { if (_player) _player.togglePlaying(); }
+  function next() { if (_player) _player.next(); }
+  function previous() { if (_player) _player.previous(); }
 
-  function init() {
-    refresh();
-    pollTimer.start();
-  }
-
-  // Force a fresh playerctl status + metadata read. The 3s poll timer is
-  // silent across suspend, so cached values can be stale on lockscreen wake.
-  function refresh() {
-    if (statusProc.running) return;  // don't reset _statusBuffer while a read is in-flight
-    root._statusBuffer = "";
-    statusProc.running = true;
-  }
-
-  Timer {
-    id: pollTimer;
-    interval: 3000;
-    repeat: true;
-    onTriggered: root.refresh();
-  }
-
-  Process {
-    id: statusProc;
-    command: ["playerctl", "status"];
-    running: false;
-    stdout: SplitParser {
-      onRead: (line) => { root._statusBuffer += line; }
-    }
-    onExited: (exitCode) => {
-      if (exitCode === 0) {
-        var status = root._statusBuffer.trim().toLowerCase();
-        root.playing = (status === "playing");
-        root.available = (status === "playing" || status === "paused");
-        if (root.available) {
-          root._metaBuffer = "";
-          metadataProc.running = true;
-        } else {
-          root.title = "";
-          root.artist = "";
-          root.artUrl = "";
-        }
-      } else {
-        root.available = false;
-        root.playing = false;
-      }
-    }
-  }
-
-  Process {
-    id: metadataProc;
-    command: ["playerctl", "metadata", "--format", "{{artist}}\t{{title}}\t{{mpris:artUrl}}"];
-    running: false;
-    stdout: SplitParser {
-      onRead: (line) => { root._metaBuffer += line; }
-    }
-    onExited: (exitCode) => {
-      if (exitCode === 0) {
-        var parts = root._metaBuffer.trim().split("\t");
-        root.artist = parts[0] || "";
-        root.title = parts[1] || "";
-        root.artUrl = parts[2] || "";
-      }
-    }
-  }
-
-  Process {
-    id: controlProc;
-    running: false;
-    onExited: root.refresh();  // refresh state after control action
-  }
+  onAvailableChanged: Log.d("Media", "available:", available, "player:", _player ? _player.identity : "(none)")
+  onPlayingChanged: Log.d("Media", "playing:", playing, "title:", title)
 }

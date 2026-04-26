@@ -14,12 +14,6 @@ ShellRoot {
   readonly property bool lockMode: Quickshell.env("AEGIS_LOCK") === "1";
   readonly property bool previewMode: !lockMode;
 
-  function _refreshServices() {
-    Battery.refresh();
-    Media.refresh();
-    Keyboard.refresh();
-  }
-
   Component.onCompleted: {
     Log.i("Shell", "Aegis Lock starting...", previewMode ? "(preview mode)" : "(lock mode)");
     Config.init();
@@ -27,9 +21,7 @@ ShellRoot {
     L10n.init();
     PamConfigs.init();
     FingerprintDetector.init();
-    Battery.init();
     Keyboard.init();
-    Media.init();
     Log.i("Shell", "Initialization complete");
   }
 
@@ -90,7 +82,6 @@ ShellRoot {
           LockContent {
             id: lockContent;
             authController: authController;
-            onEscapePressed: {}
           }
 
           Connections {
@@ -101,15 +92,8 @@ ShellRoot {
                 lockContent.shield.reset();
                 lockContent.passwordInput.text = "";
                 lockContent.passwordInput.forceActiveFocus();
-                // QML event loop freezes across suspend; cached values can be hours stale.
-                root._refreshServices();
               }
             }
-          }
-
-          Connections {
-            target: lockContent.shield;
-            function onDismissed() { root._refreshServices(); }
           }
         }
         onLoaded: Log.i("Shell", "Lock content loaded, Config.ready:", Config.ready);

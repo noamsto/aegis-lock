@@ -2,124 +2,29 @@ pragma Singleton
 
 import QtQuick
 import Quickshell
-import Quickshell.Io
+import Quickshell.Services.UPower
 import qs.Core
 
 Singleton {
   id: root;
 
-  property bool available: false;
-  property int percentage: 0;
-  property bool charging: false;
-  property string icon: "\uf240"; // battery-full
+  // UPower's aggregate primary device. Always non-null; .ready flips true
+  // once the daemon has populated its initial state.
+  readonly property var _device: UPower.displayDevice;
 
-  function init() {
-    refresh();
-    pollTimer.start();
+  readonly property bool available: _device.ready && _device.isPresent;
+  // UPowerDevice.percentage is energy/energyCapacity, normalized 0.0–1.0.
+  readonly property int percentage: available ? Math.round(_device.percentage * 100) : 0;
+  readonly property bool charging: available && _device.state === UPowerDeviceState.Charging;
+
+  readonly property string icon: {
+    if (charging) return "";       // bolt
+    if (percentage > 75) return ""; // battery-full
+    if (percentage > 50) return ""; // battery-three-quarters
+    if (percentage > 25) return ""; // battery-half
+    if (percentage > 10) return ""; // battery-quarter
+    return "";                      // battery-empty
   }
 
-  // Force a fresh read. The 30s poll timer freezes across suspend, so cached
-  // values can be hours stale by the time the lockscreen reappears.
-  function refresh() {
-    readCapacity.running = true;
-    readStatus.running = true;
-  }
-
-  Timer {
-    id: pollTimer;
-    interval: 30000;
-    repeat: true;
-    onTriggered: root.refresh();
-  }
-
-  Process {
-    id: readCapacity;
-    command: ["cat", "/sys/class/power_supply/BAT0/capacity"];
-    running: false;
-
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var val = parseInt(text.trim());
-        if (!isNaN(val)) {
-          root.available = true;
-          root.percentage = val;
-          root._updateIcon();
-        }
-      }
-    }
-
-    onExited: (exitCode) => {
-      if (exitCode !== 0) {
-        // Try BAT1
-        readCapacityAlt.running = true;
-      }
-    }
-  }
-
-  Process {
-    id: readCapacityAlt;
-    command: ["cat", "/sys/class/power_supply/BAT1/capacity"];
-    running: false;
-
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var val = parseInt(text.trim());
-        if (!isNaN(val)) {
-          root.available = true;
-          root.percentage = val;
-          root._updateIcon();
-        }
-      }
-    }
-  }
-
-  Process {
-    id: readStatus;
-    command: ["cat", "/sys/class/power_supply/BAT0/status"];
-    running: false;
-
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var status = text.trim().toLowerCase();
-        root.charging = (status === "charging");
-        root._updateIcon();
-      }
-    }
-
-    onExited: (exitCode) => {
-      if (exitCode !== 0) {
-        readStatusAlt.running = true;
-      }
-    }
-  }
-
-  Process {
-    id: readStatusAlt;
-    command: ["cat", "/sys/class/power_supply/BAT1/status"];
-    running: false;
-
-    stdout: StdioCollector {
-      onStreamFinished: {
-        var status = text.trim().toLowerCase();
-        root.charging = (status === "charging");
-        root._updateIcon();
-      }
-    }
-  }
-
-  function _updateIcon() {
-    if (charging) {
-      icon = "\uf0e7"; // bolt
-    } else if (percentage > 75) {
-      icon = "\uf240"; // battery-full
-    } else if (percentage > 50) {
-      icon = "\uf241"; // battery-three-quarters
-    } else if (percentage > 25) {
-      icon = "\uf242"; // battery-half
-    } else if (percentage > 10) {
-      icon = "\uf243"; // battery-quarter
-    } else {
-      icon = "\uf244"; // battery-empty
-    }
-  }
+  onChargingChanged: Log.d("Battery", "charging:", charging, "percentage:", percentage)
 }
