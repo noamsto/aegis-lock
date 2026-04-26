@@ -33,11 +33,14 @@ Singleton {
   }
 
   function init() {
-    _pollStatus();
+    refresh();
     pollTimer.start();
   }
 
-  function _pollStatus() {
+  // Force a fresh playerctl status + metadata read. The 3s poll timer is
+  // silent across suspend, so cached values can be stale on lockscreen wake.
+  function refresh() {
+    if (statusProc.running) return;  // don't reset _statusBuffer while a read is in-flight
     root._statusBuffer = "";
     statusProc.running = true;
   }
@@ -46,7 +49,7 @@ Singleton {
     id: pollTimer;
     interval: 3000;
     repeat: true;
-    onTriggered: root._pollStatus();
+    onTriggered: root.refresh();
   }
 
   Process {
@@ -96,6 +99,6 @@ Singleton {
   Process {
     id: controlProc;
     running: false;
-    onExited: root._pollStatus();  // refresh state after control action
+    onExited: root.refresh();  // refresh state after control action
   }
 }

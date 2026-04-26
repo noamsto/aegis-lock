@@ -133,6 +133,38 @@ Expected output includes "found 1 device" and finger entries like "- #0: Right I
 The lock surface failed to render. Switch to a TTY (`Ctrl+Alt+F2`), kill `qs`,
 and check the console output for QML errors. Run in preview mode to debug.
 
+### Stuck lock screen after instant unlock (regression check)
+
+If `onUnlocked` calls `Qt.quit()` synchronously, the wayland
+`unlock_and_destroy` request may not be flushed before the wl_display socket
+closes. Per ext-session-lock-v1, the compositor must keep the session locked
+in that case, leaving a stuck black surface only recoverable from a TTY.
+
+The race is exposed when authentication completes faster than one event loop
+tick — most reliably reproduced by:
+
+1. Lock the session (real or nested compositor) and verify the lock UI renders.
+2. Trigger an "instant" auth path. Easiest: stop `fprintd` mid-suspend so the
+   verify result returns immediately on resume:
+   ```sh
+   loginctl lock-session
+   sudo systemctl stop fprintd.service
+   systemctl suspend
+   # Open the lid → fprintd may report success without a real scan.
+   ```
+   Without fingerprint hardware, simulate by patching `AuthController.qml`
+   `fingerprintPam.onCompleted` to call `root.unlocked()` directly without
+   waiting for PAM.
+3. Watch the journal for `Lock surface destroyed for screen: ...` followed by
+   the absence of `Wayland session got unlocked` from hypridle.
+
+**Expected (after fix):** `lockSession.onLockedChanged` defers `Qt.quit()` via
+`Qt.callLater`, giving Quickshell one tick to flush `unlock_and_destroy`.
+hypridle should log `Wayland session got unlocked` within milliseconds of auth
+success. **Regression:** a black/frozen lock surface persists after the
+quickshell process exits; only `pkill quickshell && aegis-lock` from a TTY
+recovers it.
+
 ### Password not accepted
 
 Verify PAM configs are correct:

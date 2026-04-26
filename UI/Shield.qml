@@ -14,9 +14,12 @@ Item {
   readonly property bool shieldActive: internal.shieldActive;
   readonly property bool showingFingerprintIndicator: !internal.shieldActive && fpShowTimer.shouldShow;
 
+  signal dismissed;
+
   function dismissShield() {
     if (!internal.shieldActive) return;
     internal.shieldActive = false;
+    root.dismissed();
   }
 
   function reset() {

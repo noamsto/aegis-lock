@@ -14,6 +14,12 @@ ShellRoot {
   readonly property bool lockMode: Quickshell.env("AEGIS_LOCK") === "1";
   readonly property bool previewMode: !lockMode;
 
+  function _refreshServices() {
+    Battery.refresh();
+    Media.refresh();
+    Keyboard.refresh();
+  }
+
   Component.onCompleted: {
     Log.i("Shell", "Aegis Lock starting...", previewMode ? "(preview mode)" : "(lock mode)");
     Config.init();
@@ -41,6 +47,14 @@ ShellRoot {
     id: lockSession;
     locked: root.lockMode;
 
+    // Per ext-session-lock-v1, if the client disconnects while a lock is held
+    // without first flushing unlock_and_destroy, the compositor MUST keep the
+    // session locked — a synchronous Qt.quit() races the wayland write and
+    // can leave a stuck black surface only TTY recovery can clear.
+    onLockedChanged: {
+      if (root.lockMode && !locked) Qt.callLater(Qt.quit);
+    }
+
     WlSessionLockSurface {
       id: lockSurface;
 
@@ -66,7 +80,7 @@ ShellRoot {
             onUnlocked: {
               lockSession.locked = false;
               authController.currentText = "";
-              Qt.quit();
+              // Quit is handled by lockSession.onLockedChanged after wayland flush.
             }
             onFailed: {
               authController.currentText = "";
@@ -87,8 +101,15 @@ ShellRoot {
                 lockContent.shield.reset();
                 lockContent.passwordInput.text = "";
                 lockContent.passwordInput.forceActiveFocus();
+                // QML event loop freezes across suspend; cached values can be hours stale.
+                root._refreshServices();
               }
             }
+          }
+
+          Connections {
+            target: lockContent.shield;
+            function onDismissed() { root._refreshServices(); }
           }
         }
         onLoaded: Log.i("Shell", "Lock content loaded, Config.ready:", Config.ready);

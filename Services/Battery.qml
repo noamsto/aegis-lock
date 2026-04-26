@@ -14,19 +14,22 @@ Singleton {
   property string icon: "\uf240"; // battery-full
 
   function init() {
+    refresh();
+    pollTimer.start();
+  }
+
+  // Force a fresh read. The 30s poll timer freezes across suspend, so cached
+  // values can be hours stale by the time the lockscreen reappears.
+  function refresh() {
     readCapacity.running = true;
     readStatus.running = true;
-    pollTimer.start();
   }
 
   Timer {
     id: pollTimer;
     interval: 30000;
     repeat: true;
-    onTriggered: {
-      readCapacity.running = true;
-      readStatus.running = true;
-    }
+    onTriggered: root.refresh();
   }
 
   Process {
