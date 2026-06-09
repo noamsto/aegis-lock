@@ -15,6 +15,14 @@ ShellRoot {
   readonly property bool previewMode: !lockMode;
 
   Component.onCompleted: {
+    // hasVersion arrived in 0.3; on older builds it's undefined, which the typeof
+    // guard catches before the Networking import in qs.Services is ever reached.
+    if (typeof Quickshell.hasVersion !== "function" || !Quickshell.hasVersion(0, 3)) {
+      Log.e("Shell", "Aegis Lock requires Quickshell 0.3 or newer. Aborting.");
+      Qt.quit();
+      return;
+    }
+
     Log.i("Shell", "Aegis Lock starting...", previewMode ? "(preview mode)" : "(lock mode)");
     Config.init();
     Theme.init();
