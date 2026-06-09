@@ -134,6 +134,30 @@ Item {
       styleColor: Qt.alpha("#000000", 0.4);
     }
 
+    // Network indicator
+    RowLayout {
+      spacing: Theme.spacingS;
+      visible: Network.available;
+
+      Text {
+        text: Network.icon;
+        font.pointSize: Theme.fontSizeSmall;
+        font.family: "Symbols Nerd Font";
+        color: Qt.alpha(Theme.surfaceForeground, 0.6);
+        style: Text.Raised;
+        styleColor: Qt.alpha("#000000", 0.4);
+      }
+
+      Text {
+        text: Network.ssid;
+        font.pointSize: Theme.fontSizeSmall;
+        color: Qt.alpha(Theme.surfaceForeground, 0.6);
+        visible: Network.isWifi && Network.ssid !== "";
+        style: Text.Raised;
+        styleColor: Qt.alpha("#000000", 0.4);
+      }
+    }
+
     // Battery indicator
     RowLayout {
       spacing: Theme.spacingS;
