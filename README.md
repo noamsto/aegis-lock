@@ -1,6 +1,6 @@
 # Aegis Lock
 
-Standalone Wayland lockscreen for Hyprland, built with [Quickshell](https://quickshell.outfoxxed.me/). Supports PAM password authentication, fingerprint unlock via fprintd, and automatic Material Design 3 theming from [Noctalia](https://github.com/noctalia).
+Standalone Wayland lockscreen for Hyprland, built with [Quickshell](https://quickshell.outfoxxed.me/). Supports PAM password authentication, fingerprint unlock via fprintd, and automatic Material Design 3 theming from [Noctalia](https://github.com/noctalia-dev).
 
 ## Features
 
@@ -96,23 +96,29 @@ Add the module to your Home Manager imports and enable it:
 
 ### Noctalia session menu
 
-If you use [Noctalia](https://github.com/noctalia) as your Hyprland shell, you can replace its built-in lock screen with Aegis Lock. In `~/.config/noctalia/gui-settings.json`, add a `command` field to the lock entry in `sessionMenu.powerOptions`:
+If you use [Noctalia](https://github.com/noctalia-dev) as your Hyprland shell, you can replace its built-in lock screen with Aegis Lock by giving the lock action a `command`. Setting a command routes the lock button (session panel, `/session` launcher, and `noctalia msg session lock`) through Aegis Lock instead of Noctalia's built-in lockscreen.
+
+**Noctalia v5** — add to any `~/.config/noctalia/*.toml`:
+
+```toml
+[[shell.session.actions]]
+action = "lock"
+command = "aegis-lock"
+```
+
+**Noctalia v4** — in `~/.config/noctalia/gui-settings.json`, add a `command` field to the lock entry in `sessionMenu.powerOptions`:
 
 ```json
 {
   "sessionMenu": {
     "powerOptions": [
-      {
-        "action": "lock",
-        "enabled": true,
-        "command": "aegis-lock"
-      }
+      { "action": "lock", "enabled": true, "command": "aegis-lock" }
     ]
   }
 }
 ```
 
-When you press the lock button in Noctalia's session menu, it will launch Aegis Lock instead of Noctalia's built-in lock screen. Colors are synced automatically (see [Noctalia color sync](#noctalia-color-sync)).
+Colors are synced automatically (see [Noctalia color sync](#noctalia-color-sync)).
 
 ### Hyprland integration
 
@@ -184,9 +190,16 @@ For setups without fingerprint, or if you prefer system-managed PAM rules, you c
 
 ## Wallpaper background
 
-Aegis Lock displays your current wallpaper as a blurred background behind the lock screen. It reads the wallpaper path from `~/.config/noctalia/last-wallpaper`, which Noctalia writes automatically via its wallpaper change hook. The file is watched for changes, so wallpaper updates are reflected live.
+Aegis Lock displays your current wallpaper as a blurred background behind the lock screen. It reads the wallpaper path from `~/.config/noctalia/last-wallpaper`, written by a Noctalia wallpaper-change hook. The file is watched for changes, so wallpaper updates are reflected live.
 
-To set up the hook in Noctalia, add to your `gui-settings.json`:
+**Noctalia v5** — add to any `~/.config/noctalia/*.toml`. The changed wallpaper's path is exposed as `$NOCTALIA_WALLPAPER_PATH`:
+
+```toml
+[hooks]
+wallpaper_changed = 'echo "$NOCTALIA_WALLPAPER_PATH" > ~/.config/noctalia/last-wallpaper'
+```
+
+**Noctalia v4** — in `~/.config/noctalia/gui-settings.json`, the path is the positional `$1`:
 
 ```json
 {
@@ -198,25 +211,17 @@ To set up the hook in Noctalia, add to your `gui-settings.json`:
 }
 ```
 
-Or via the Home Manager module for Noctalia:
-
-```nix
-{
-  programs.noctalia.settings.wallpaper.hooks.wallpaperChange =
-    ''echo "$1" > ~/.config/noctalia/last-wallpaper'';
-}
-```
-
 If the file doesn't exist or is empty, Aegis Lock falls back to a solid color background using the theme's surface color.
 
 ## Noctalia color sync
 
-Aegis Lock automatically picks up Noctalia's color scheme. When Noctalia generates a `~/.config/noctalia/colors.json`, Aegis Lock reads it on startup and watches for changes. The following Material Design 3 keys are used:
+Aegis Lock picks up Noctalia's color scheme from `~/.config/noctalia/colors.json`, read on startup and watched for changes. The following Material Design 3 keys are used:
 
 | colors.json key     | Aegis Lock property       |
 |---------------------|---------------------------|
 | `primary`           | Accent color              |
 | `onPrimary`         | Text on accent            |
+| `primaryContainer`  | Accent container          |
 | `surface`           | Background                |
 | `onSurface`         | Primary text              |
 | `surfaceVariant`    | Secondary surfaces        |
@@ -224,6 +229,22 @@ Aegis Lock automatically picks up Noctalia's color scheme. When Noctalia generat
 | `error`             | Error states              |
 | `onError`           | Text on error             |
 | `outline`           | Borders                   |
+
+**Noctalia v5** no longer writes `colors.json` directly — its live palette is exposed through the template system. Install the bundled template so Noctalia regenerates `colors.json` on every palette change:
+
+```bash
+cp contrib/noctalia-v5-colors.json ~/.config/noctalia/templates/aegis-colors.json
+```
+
+Then add to any `~/.config/noctalia/*.toml`:
+
+```toml
+[theme.templates.user.aegis_lock]
+input_path  = "$XDG_CONFIG_HOME/noctalia/templates/aegis-colors.json"
+output_path = "$XDG_CONFIG_HOME/noctalia/colors.json"
+```
+
+**Noctalia v4** writes `~/.config/noctalia/colors.json` itself — no template needed.
 
 To override Noctalia's colors, create `~/.config/aegis-lock/colors.json` with the same key format. This takes priority over Noctalia.
 
