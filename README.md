@@ -180,7 +180,12 @@ For setups without fingerprint, or if you prefer system-managed PAM rules, you c
 
 ## Wallpaper background
 
-Aegis Lock displays your current wallpaper as a blurred background behind the lock screen. It reads the wallpaper path from `~/.config/noctalia/last-wallpaper`, written by a Noctalia wallpaper-change hook. The file is watched for changes, so wallpaper updates are reflected live.
+Aegis Lock displays your current wallpaper as a blurred background behind the lock screen. It reads the wallpaper path from two files, in this order:
+
+1. `$XDG_STATE_HOME/noctalia/last-wallpaper` (default `~/.local/state/noctalia/last-wallpaper`)
+2. `$XDG_CONFIG_HOME/noctalia/last-wallpaper` (default `~/.config/noctalia/last-wallpaper`), kept for older Noctalia setups
+
+The state file is used whenever it is non-empty; otherwise the config file is used. Both files are watched for changes, so wallpaper updates are reflected live.
 
 **Noctalia v5** — add to any `~/.config/noctalia/*.toml`. The changed wallpaper's path is exposed as `$NOCTALIA_WALLPAPER_PATH`:
 

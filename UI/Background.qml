@@ -15,9 +15,22 @@ Item {
     color: Theme.surface;
   }
 
-  // Wallpaper path from noctalia
+  // Wallpaper path from noctalia. Newer Noctalia writes its state under
+  // $XDG_STATE_HOME; older setups write under $XDG_CONFIG_HOME. The state file
+  // is preferred whenever it is non-empty, otherwise the config file is used.
   FileView {
-    id: wallpaperPathFile;
+    id: wallpaperStateFile;
+    path: {
+      var home = Quickshell.env("HOME") || "/tmp";
+      var xdg = Quickshell.env("XDG_STATE_HOME");
+      var base = xdg ? xdg : (home + "/.local/state");
+      return base + "/noctalia/last-wallpaper";
+    }
+    watchChanges: true;
+  }
+
+  FileView {
+    id: wallpaperConfigFile;
     path: {
       var home = Quickshell.env("HOME") || "/tmp";
       var xdg = Quickshell.env("XDG_CONFIG_HOME");
@@ -28,8 +41,10 @@ Item {
   }
 
   property string wallpaperPath: {
-    var raw = wallpaperPathFile.text();
-    return raw ? raw.trim() : "";
+    var state = wallpaperStateFile.text();
+    if (state && state.trim()) return state.trim();
+    var config = wallpaperConfigFile.text();
+    return config ? config.trim() : "";
   }
 
   Image {
