@@ -20,31 +20,21 @@ Standalone Wayland lockscreen for Hyprland, built with [Quickshell](https://quic
 
 ### Flake input
 
-From [FlakeHub](https://flakehub.com/flake/noamsto/aegis-lock) (recommended — includes binary cache so you don't have to build from source):
-
 ```nix
 {
-  inputs.aegis-lock.url = "https://flakehub.com/f/noamsto/aegis-lock/*.tar.gz";
+  inputs.aegis-lock.url = "github:noamsto/aegis-lock";
 }
 ```
 
-To use the FlakeHub binary cache, add the [FlakeHub cache](https://docs.flakehub.com/docs/cache) to your NixOS or nix config:
+To use the [Cachix](https://aegis-lock.cachix.org) binary cache so you don't have to build from source, add it to your NixOS or nix config:
 
 ```nix
 # configuration.nix
 {
   nix.settings = {
-    extra-substituters = [ "https://cache.flakehub.com" ];
-    extra-trusted-public-keys = [ "cache.flakehub.com-1:t6986ugxCA+d/ZF9IaN/dblm8aAKnJoMbuzEHbU0Rn8=" ];
+    extra-substituters = [ "https://aegis-lock.cachix.org" ];
+    extra-trusted-public-keys = [ "aegis-lock.cachix.org-1:GI2T6oX4gx8gDFPc+wtbpn0Qz3IvzMbg/TkqTfb2pmY=" ];
   };
-}
-```
-
-Or from GitHub (builds from source):
-
-```nix
-{
-  inputs.aegis-lock.url = "github:noamsto/aegis-lock";
 }
 ```
 
@@ -58,7 +48,7 @@ Add the module to your Home Manager imports and enable it:
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     home-manager.url = "github:nix-community/home-manager";
-    aegis-lock.url = "https://flakehub.com/f/noamsto/aegis-lock/*.tar.gz";
+    aegis-lock.url = "github:noamsto/aegis-lock";
   };
 
   outputs = { nixpkgs, home-manager, aegis-lock, ... }: {
