@@ -20,8 +20,42 @@ Item {
   // Emitted when Escape is pressed (preview mode uses this to quit)
   signal escapePressed;
 
+  // Seconds of inactivity before the shield is raised again; 0 disables
+  readonly property int idleTimeoutSeconds: {
+    var s = Config.data.shield ? Config.data.shield.idleTimeoutSeconds : undefined;
+    return (typeof s === "number" && s >= 1) ? Math.min(Math.floor(s), 86400) : (s === undefined ? 60 : 0);
+  }
+
+  function restartIdle() {
+    if (idleTimer.running) idleTimer.restart();
+  }
+
+  // Stopped while a session countdown is pending: raising the shield hides the
+  // controls and the countdown would outlive them.
+  Timer {
+    id: idleTimer;
+    interval: root.idleTimeoutSeconds * 1000;
+    repeat: false;
+    running: !shield.shieldActive && root.idleTimeoutSeconds > 0 && !authController.unlockInProgress && !sessionControls.timerActive;
+    onTriggered: {
+      authController.cancelPendingAuth();
+      shield.reset();
+    }
+  }
+
+  // Passive pointer handlers so child MouseAreas still receive events
+  HoverHandler {
+    onPointChanged: root.restartIdle();
+  }
+
+  PointHandler {
+    acceptedButtons: Qt.AllButtons;
+    onActiveChanged: root.restartIdle();
+  }
+
   // Key handler — forward to shield first
   Keys.onPressed: function (event) {
+    root.restartIdle();
     if (event.key === Qt.Key_Escape) {
       root.escapePressed();
       event.accepted = true;
@@ -79,6 +113,7 @@ Item {
     visible: false;
     echoMode: TextInput.Password;
     onTextChanged: {
+      root.restartIdle();
       authController.currentText = text;
       if (shield.shieldActive && text.length > 0) {
         shield.dismissShield();
@@ -91,6 +126,7 @@ Item {
       if (activeFocus) Keyboard.refresh();
     }
     enabled: !authController.unlockInProgress;
+    Keys.onPressed: function (event) { root.restartIdle(); event.accepted = false; }
     Component.onCompleted: forceActiveFocus();
   }
 
@@ -112,6 +148,7 @@ Item {
   }
 
   SessionControls {
+    id: sessionControls;
     visible: (!shield.shieldActive) && (Config.data.general ? Config.data.general.showSessionButtons !== false : true);
   }
 
