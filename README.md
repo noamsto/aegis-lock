@@ -69,6 +69,9 @@ Add the module to your Home Manager imports and enable it:
                 countdownEnabled = true;
                 countdownDuration = 10000; # ms before session action executes
               };
+              shield = {
+                idleTimeoutSeconds = 60; # seconds idle before the shield returns; 0 disables
+              };
             };
 
             # Optional: use system PAM instead of per-user configs (see PAM section)
@@ -260,12 +263,17 @@ Default values:
     "countdownEnabled": true,
     "countdownDuration": 10000
   },
+  "shield": {
+    "idleTimeoutSeconds": 60
+  },
   "theme": {
     "source": "auto",
     "colorsFile": ""
   }
 }
 ```
+
+`shield.idleTimeoutSeconds`: after the shield is dismissed, raise it again (aborting fingerprint scan and clearing typed input) following this many seconds without activity; `0` disables.
 
 ## Development
 

@@ -71,6 +71,22 @@ Scope {
     currentText = "";
   }
 
+  // Abort a pending fingerprint scan and clear transient input/messages.
+  function cancelPendingAuth() {
+    if (passwordActive) return;
+    Log.i("Auth", "Cancelling pending auth (idle timeout)");
+    if (fingerprintActive) {
+      fingerprintPam.abort();
+    }
+    fingerprintActive = false;
+    waitingForPassword = false;
+    showFailure = false;
+    showInfo = false;
+    errorMessage = "";
+    infoMessage = "";
+    currentText = "";
+  }
+
   function startFingerprintAuth() {
     Log.i("Auth", "startFingerprintAuth - fingerprintMode:", fingerprintMode, "fingerprintActive:", fingerprintActive);
 

@@ -8,6 +8,9 @@
     "countdownEnabled": true,
     "countdownDuration": 10000
   },
+  "shield": {
+    "idleTimeoutSeconds": 60
+  },
   "theme": {
     "source": "auto",
     "colorsFile": ""
